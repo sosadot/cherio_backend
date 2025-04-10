@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from db import get_db
-from auth_utils import verify_token  # Make sure this import is present
+from .auth_utils import verify_token # Make sure this import is present
 
 router = APIRouter()
 
