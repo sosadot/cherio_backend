@@ -1,3 +1,4 @@
 fastapi
 uvicorn
 mysql-connector-python
+python-multipart
