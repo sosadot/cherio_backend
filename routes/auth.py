@@ -1,12 +1,16 @@
 from fastapi import APIRouter, HTTPException, Form
 import uuid
-import hashlib
+import bcrypt
 from db import get_db
 
 router = APIRouter()
 
 def hash_password(password: str):
-    return hashlib.sha1(password.encode()).hexdigest()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    return hashed.decode('utf-8')
+
+def verify_password(password: str, hashed_password: str):
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 def generate_sso():
     return f"Sso-{uuid.uuid4()}"
@@ -35,7 +39,7 @@ def login_user(username: str = Form(...), password: str = Form(...)):
     cursor.execute("SELECT id, password FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
 
-    if not user or hash_password(password) != user["password"]:
+    if not user or not verify_password(password, user["password"]):
         raise HTTPException(status_code=403, detail="Invalid Chod or password")
 
     ticket = generate_sso()
