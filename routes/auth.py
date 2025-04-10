@@ -53,8 +53,9 @@ def login_user(username: str = Form(...), password: str = Form(...), remember_me
     jwt_token = create_access_token({"sub": user["id"]}, remember_me=remember_me)
 
     return {
-        "sso_ticket": ticket,
-        "jwt_token": jwt_token
+        "access_token": jwt_token,
+        "token_type": "bearer",
+        "sso_ticket": ticket
     }
 
 @router.get("/sso/{username}")
