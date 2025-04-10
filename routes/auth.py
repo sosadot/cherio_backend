@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Form
 import uuid
 import bcrypt
 from db import get_db
-from auth_utils import create_access_token
+from .auth_utils import create_access_token
 from dotenv import load_dotenv
 
 load_dotenv()
