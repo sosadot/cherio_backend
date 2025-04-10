@@ -46,12 +46,6 @@ def login_user(username: str = Form(...), password: str = Form(...), remember_me
     if not user or not verify_password(password, user["password"]):
         raise HTTPException(status_code=403, detail="Invalid Chod or password")
 
-    # Update the SSO ticket silently in the background
-    ticket = generate_sso()
-    cursor.execute("UPDATE users SET auth_ticket = %s WHERE id = %s", (ticket, user["id"]))
-    db.commit()
-
-    # Only return JWT
     jwt_token = create_access_token({"sub": user["id"]}, remember_me=remember_me)
 
     return {
@@ -63,8 +57,14 @@ def login_user(username: str = Form(...), password: str = Form(...), remember_me
 def get_sso(username: str):
     db = get_db()
     cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT auth_ticket FROM users WHERE username = %s", (username,))
+    cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
+
     if not user:
         raise HTTPException(status_code=404, detail="Chod not found")
-    return {"sso_ticket": user["auth_ticket"]}
+
+    ticket = generate_sso()
+    cursor.execute("UPDATE users SET auth_ticket = %s WHERE id = %s", (ticket, user["id"]))
+    db.commit()
+
+    return {"sso_ticket": ticket}
