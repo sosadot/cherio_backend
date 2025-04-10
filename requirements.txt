@@ -3,3 +3,5 @@ uvicorn
 mysql-connector-python
 python-multipart
 bcrypt
+python-jose
+python-dotenv

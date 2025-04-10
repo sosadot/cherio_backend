@@ -2,15 +2,19 @@ from fastapi import APIRouter, HTTPException, Form
 import uuid
 import bcrypt
 from db import get_db
+from auth_utils import create_access_token
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter()
 
 def hash_password(password: str):
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    return hashed.decode('utf-8')
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+    return hashed.decode("utf-8")
 
 def verify_password(password: str, hashed_password: str):
-    return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+    return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 def generate_sso():
     return f"Sso-{uuid.uuid4()}"
@@ -33,7 +37,7 @@ def register_user(username: str = Form(...), password: str = Form(...)):
     return {"message": f"Chod '{username}' registered successfully"}
 
 @router.post("/login")
-def login_user(username: str = Form(...), password: str = Form(...)):
+def login_user(username: str = Form(...), password: str = Form(...), remember_me: bool = Form(False)):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     cursor.execute("SELECT id, password FROM users WHERE username = %s", (username,))
@@ -45,7 +49,13 @@ def login_user(username: str = Form(...), password: str = Form(...)):
     ticket = generate_sso()
     cursor.execute("UPDATE users SET auth_ticket = %s WHERE id = %s", (ticket, user["id"]))
     db.commit()
-    return {"sso_ticket": ticket}
+
+    jwt_token = create_access_token({"sub": user["id"]}, remember_me=remember_me)
+
+    return {
+        "sso_ticket": ticket,
+        "jwt_token": jwt_token
+    }
 
 @router.get("/sso/{username}")
 def get_sso(username: str):
