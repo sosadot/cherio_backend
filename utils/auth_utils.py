@@ -7,26 +7,22 @@ from fastapi.security import OAuth2PasswordBearer
 
 load_dotenv()
 
-# Load secret key and algorithm from environment or use defaults
+# Environment configuration with sensible defaults
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-key")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 5))
-REMEMBER_ME_EXPIRE_DAYS = int(os.getenv("JWT_REMEMBER_ME_DAYS", 5))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 5))  # short token
+REMEMBER_ME_EXPIRE_DAYS = int(os.getenv("JWT_REMEMBER_ME_DAYS", 5)) * 24 * 60  # in minutes
 
 # For extracting token from Authorization header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def create_access_token(data: dict, remember_me: bool = False):
     to_encode = data.copy()
-
-    if remember_me:
-        expire = datetime.utcnow() + timedelta(seconds=REMEMBER_ME_EXPIRE_DAYS)
-    else:
-        expire = datetime.utcnow() + timedelta(seconds=ACCESS_TOKEN_EXPIRE_MINUTES)
-
+    expire = datetime.utcnow() + timedelta(
+        minutes=REMEMBER_ME_EXPIRE_DAYS if remember_me else ACCESS_TOKEN_EXPIRE_MINUTES
+    )
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def verify_token(token: str = Depends(oauth2_scheme)):
     try:

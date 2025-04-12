@@ -3,20 +3,19 @@ import uuid
 import bcrypt
 from datetime import datetime
 from db import get_db
+from utils.auth_utils import create_access_token
 
 router = APIRouter()
-
 
 def hash_password(password: str):
     hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
     return hashed.decode("utf-8")
+
 def verify_password(password: str, hashed_password: str):
     return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
 
-
 def generate_sso():
     return f"Sso-{uuid.uuid4()}"
-
 
 @router.post("/register")
 def register_user(
@@ -64,9 +63,12 @@ def register_user(
         "username": username
     }
 
-
 @router.post("/login")
-def login_user(username: str = Form(...), password: str = Form(...)):
+def login_user(
+    username: str = Form(...),
+    password: str = Form(...),
+    remember_me: bool = Form(False)
+):
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
