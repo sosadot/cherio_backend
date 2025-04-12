@@ -1,7 +1,3 @@
-<<<<<<< Updated upstream
-from fastapi import FastAPI
-from routes import auth, user
-=======
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +9,6 @@ from routes import auth, user, news  # ✅ Include news
 
 # Load env
 load_dotenv()
->>>>>>> Stashed changes
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
@@ -28,9 +23,6 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
-<<<<<<< Updated upstream
-app.include_router(user.router, prefix="/user", tags=["User"])
-=======
 app.include_router(user.router, prefix="/user", tags=["User"])
 app.include_router(news.router, prefix="/news", tags=["News"])  # ✅ Add prefix
 
@@ -58,4 +50,3 @@ async def create_checkout_session(request: CreateCheckoutSessionRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)
->>>>>>> Stashed changes

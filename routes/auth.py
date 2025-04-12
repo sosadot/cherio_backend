@@ -1,27 +1,17 @@
 from fastapi import APIRouter, HTTPException, Form, Request
 import uuid
-<<<<<<< Updated upstream
-import hashlib
-=======
 import bcrypt
 from datetime import datetime
->>>>>>> Stashed changes
 from db import get_db
 
 router = APIRouter()
 
 
 def hash_password(password: str):
-<<<<<<< Updated upstream
-    return hashlib.sha1(password.encode()).hexdigest()
-=======
     hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
     return hashed.decode("utf-8")
-
-
 def verify_password(password: str, hashed_password: str):
     return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
->>>>>>> Stashed changes
 
 
 def generate_sso():
@@ -82,16 +72,6 @@ def login_user(username: str = Form(...), password: str = Form(...)):
 
     cursor.execute("SELECT id, password FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
-
-<<<<<<< Updated upstream
-    if not user or hash_password(password) != user["password"]:
-        raise HTTPException(status_code=403, detail="Invalid Chod or password")
-
-    ticket = generate_sso()
-    cursor.execute("UPDATE users SET auth_ticket = %s WHERE id = %s", (ticket, user["id"]))
-    db.commit()
-    return {"sso_ticket": ticket}
-=======
     if not user or not verify_password(password, user["password"]):
         raise HTTPException(status_code=403, detail="Invalid username or password")
 
@@ -102,25 +82,14 @@ def login_user(username: str = Form(...), password: str = Form(...)):
         "token_type": "bearer",
         "username": username
     }
->>>>>>> Stashed changes
-
 
 @router.get("/sso/{username}")
 def get_sso(username: str):
     db = get_db()
     cursor = db.cursor(dictionary=True)
-<<<<<<< Updated upstream
-    cursor.execute("SELECT auth_ticket FROM users WHERE username = %s", (username,))
-=======
-
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
->>>>>>> Stashed changes
     user = cursor.fetchone()
     if not user:
-<<<<<<< Updated upstream
-        raise HTTPException(status_code=404, detail="Chod not found")
-    return {"sso_ticket": user["auth_ticket"]}
-=======
         raise HTTPException(status_code=404, detail="User not found")
 
     ticket = generate_sso()
@@ -128,4 +97,3 @@ def get_sso(username: str):
     db.commit()
 
     return {"sso_ticket": ticket}
->>>>>>> Stashed changes

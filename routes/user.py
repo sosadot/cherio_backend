@@ -15,9 +15,6 @@ def get_user_by_username(username: str):
     user = cursor.fetchone()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-<<<<<<< Updated upstream
-    return user
-=======
     return user
 
 
@@ -85,4 +82,3 @@ def get_staff_users():
             grouped["Event Manager"].append(user)
 
     return grouped
->>>>>>> Stashed changes
