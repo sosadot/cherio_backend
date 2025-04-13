@@ -10,7 +10,7 @@ load_dotenv()
 # Environment configuration with sensible defaults
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-key")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_SECONDS = 3  # short token in seconds
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRY_MINUTES", 5))
 REMEMBER_ME_EXPIRE_DAYS = int(os.getenv("JWT_REMEMBER_ME_DAYS", 5))  # in days
 
 # For extracting token from Authorization header
@@ -18,10 +18,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def create_access_token(data: dict, remember_me: bool = False):
     to_encode = data.copy()
-    print(f"Remember me (utils): {remember_me}")  # Output to console
     expire = datetime.utcnow() + timedelta(
-        days=REMEMBER_ME_EXPIRE_DAYS if remember_me else 0,
-        seconds=ACCESS_TOKEN_EXPIRE_SECONDS if not remember_me else 0,
+        minutes=REMEMBER_ME_EXPIRE_DAYS if remember_me else ACCESS_TOKEN_EXPIRE_MINUTES
     )
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
