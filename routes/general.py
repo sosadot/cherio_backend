@@ -1,8 +1,7 @@
-# routes/general.py
 import os
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-import stripe # Assuming stripe is configured in main.py
+import stripe
 
 router = APIRouter()
 

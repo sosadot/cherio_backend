@@ -1,12 +1,10 @@
-# routes/shop.py
-
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
 @router.get("/shop")
-def get_shop_items():
+async def get_shop_items():
     # Dummy shop items
     items = [
         {"id": 1, "name": "VIP Membership", "price": 4.99, "currency": "USD"},

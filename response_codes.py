@@ -1,4 +1,3 @@
-# response_codes.py
 from enum import IntEnum
 
 class UserResponseCode(IntEnum):
