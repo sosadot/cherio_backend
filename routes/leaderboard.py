@@ -1,12 +1,11 @@
-from fastapi import APIRouter
-from db import get_db
+from fastapi import APIRouter, Depends
+from db import get_db_session
 
 router = APIRouter()
 
 @router.get("/leaderboard")
-async def get_leaderboard():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_leaderboard(db_session = Depends(get_db_session)):
+    db, cursor = db_session # Unpack
 
     stats = [
         "credits",

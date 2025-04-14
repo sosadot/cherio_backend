@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-from db import get_db
-from routes.auth import verify_password
-from routes.auth import hash_password
+from db import get_db_session
+from utils.auth_utils import verify_password, hash_password
+import mysql.connector
+
 
 router = APIRouter()
 
@@ -28,9 +29,11 @@ class SettingsUpdateRequest(BaseModel):
 # ------------------------------
 
 @router.get("/username/{username}")
-async def get_user_by_username(username: str):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_user_by_username(
+    username: str,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
     cursor.execute("""
         SELECT id, username, look, motto, credits, pixels, points, gender, mail
         FROM users
@@ -46,9 +49,11 @@ async def get_user_by_username(username: str):
 # ------------------------------
 
 @router.get("/friends/{username}")
-async def get_friends(username: str):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_friends(
+    username: str,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
     if not user:
@@ -62,27 +67,27 @@ async def get_friends(username: str):
             (mf.user_two_id = %s AND u.id = mf.user_one_id)
         )
     """, (user_id, user_id))
-    return cursor.fetchall()
+    friends = cursor.fetchall()
+    return friends
 
 # ------------------------------
 # Online Count
 # ------------------------------
 
 @router.get("/online-count")
-async def get_online_user_count():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_online_user_count(db_session = Depends(get_db_session)): # Use dependency
+    db, cursor = db_session # Unpack
     cursor.execute("SELECT COUNT(*) AS count FROM users WHERE online = 2")
-    return cursor.fetchone()
+    count_result = cursor.fetchone()
+    return count_result
 
 # ------------------------------
 # Staff Users
 # ------------------------------
 
 @router.get("/staff")
-async def get_staff_users():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_staff_users(db_session = Depends(get_db_session)): # Use dependency
+    db, cursor = db_session # Unpack
     cursor.execute("""
         SELECT id, username, look, motto, gender, `rank`
         FROM users
@@ -91,7 +96,12 @@ async def get_staff_users():
     """)
     users = cursor.fetchall()
     if not users:
-        raise HTTPException(status_code=404, detail="No staff users found")
+        # Changed to return empty structure instead of 404, adjust if needed
+        return {
+            "Founder": [], "Administrator": [], "Moderator": [], "Event Manager": []
+        }
+        # raise HTTPException(status_code=404, detail="No staff users found")
+
 
     grouped = {
         "Founder": [],
@@ -117,9 +127,11 @@ async def get_staff_users():
 # ------------------------------
 
 @router.get("/groups/{username}")
-async def get_user_groups(username: str):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_user_groups(
+    username: str,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
     if not user:
@@ -130,16 +142,19 @@ async def get_user_groups(username: str):
         JOIN guilds g ON gm.guild_id = g.id
         WHERE gm.user_id = %s
     """, (user["id"],))
-    return cursor.fetchall()
+    groups = cursor.fetchall()
+    return groups
 
 # ------------------------------
 # Achievements
 # ------------------------------
 
 @router.get("/achievements/{username}")
-async def get_user_achievements(username: str):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_user_achievements(
+    username: str,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
     if not user:
@@ -161,9 +176,11 @@ async def get_user_achievements(username: str):
 # ------------------------------
 
 @router.get("/badges/{username}")
-async def get_user_badges(username: str):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_user_badges(
+    username: str,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
     if not user:
@@ -184,9 +201,11 @@ async def get_user_badges(username: str):
 # ------------------------------
 
 @router.get("/wardrobe/{username}")
-async def get_user_wardrobe(username: str):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_user_wardrobe(
+    username: str,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
 
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
@@ -201,8 +220,7 @@ async def get_user_wardrobe(username: str):
     """, (user["id"],))
 
     wardrobe = cursor.fetchall()
-    if not wardrobe:
-        return []  # Frontend should display "no looks" message
+    # Returning empty list is fine, no need to check 'if not wardrobe' here
     return wardrobe
 
 # ------------------------------
@@ -210,18 +228,29 @@ async def get_user_wardrobe(username: str):
 # ------------------------------
 
 @router.post("/look/update")
-async def update_user_look(data: LookUpdateRequest):
+async def update_user_look(
+    data: LookUpdateRequest,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
     print("📥 LOOK PAYLOAD:", data.dict())
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+
     cursor.execute("SELECT id FROM users WHERE username = %s", (data.username,))
     user = cursor.fetchone()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
     cursor.execute("""
         UPDATE users SET look = %s, gender = %s WHERE id = %s
     """, (data.look, data.gender.upper(), user["id"]))
-    db.commit()
+
+    try:
+        db.commit() # Commit using yielded db
+    except mysql.connector.Error as commit_err:
+        print(f"Commit failed during look update: {commit_err}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update look.")
+
     return {"message": "Look updated successfully"}
 
 # ------------------------------
@@ -229,10 +258,12 @@ async def update_user_look(data: LookUpdateRequest):
 # ------------------------------
 
 @router.post("/settings/update")
-async def update_user_settings(data: SettingsUpdateRequest):
+async def update_user_settings(
+    data: SettingsUpdateRequest,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
     print("📥 SETTINGS PAYLOAD:", data.dict())
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
 
     cursor.execute("SELECT id, motto, mail, password FROM users WHERE username = %s", (data.username,))
     user = cursor.fetchone()
@@ -240,12 +271,16 @@ async def update_user_settings(data: SettingsUpdateRequest):
         raise HTTPException(status_code=404, detail="User not found")
 
     user_id = user["id"]
+    updated = False # Flag to track if any update happened
 
     if data.motto and data.motto != user["motto"]:
         cursor.execute("UPDATE users SET motto = %s WHERE id = %s", (data.motto, user_id))
+        updated = True
 
     if data.email and data.email != user["mail"]:
+        # Optional: Add email validation here if needed
         cursor.execute("UPDATE users SET mail = %s WHERE id = %s", (data.email, user_id))
+        updated = True
 
     if data.new_password:
         if not data.current_password:
@@ -256,47 +291,21 @@ async def update_user_settings(data: SettingsUpdateRequest):
 
         hashed_new = hash_password(data.new_password)
         cursor.execute("UPDATE users SET password = %s WHERE id = %s", (hashed_new, user_id))
+        updated = True
 
-    db.commit()
+    if updated:
+        try:
+            db.commit() # Commit using yielded db
+        except mysql.connector.Error as commit_err:
+            print(f"Commit failed during settings update: {commit_err}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Failed to save settings.")
+    else:
+         # Optional: Return a different message if nothing changed
+         return {"message": "No settings were changed."}
+
+
     return {"message": "Settings updated successfully"}
 
-@router.get("/leaderboard")
-async def get_leaderboards():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+# Note: Removed duplicate /leaderboard endpoint from user.py, assuming it's in general.py
 
-    leaderboards = {}
-
-    # List of all stat categories
-    categories = [
-        ("credits", "users"),
-        ("pixels", "users"),
-        ("points", "users"),
-        ("respects_received", "users_settings"),
-        ("respects_given", "users_settings"),
-        ("achievement_score", "users_settings"),
-        ("online_time", "users_settings"),
-        ("login_streak", "users_settings"),
-    ]
-
-    for column, table in categories:
-        # Join settings with users if needed
-        if table == "users_settings":
-            cursor.execute(f"""
-                SELECT u.username, u.look, u.gender, s.{column}
-                FROM {table} s
-                JOIN users u ON u.id = s.user_id
-                ORDER BY s.{column} DESC
-                LIMIT 10
-            """)
-        else:
-            cursor.execute(f"""
-                SELECT username, look, gender, {column}
-                FROM {table}
-                ORDER BY {column} DESC
-                LIMIT 10
-            """)
-
-        leaderboards[column] = cursor.fetchall()
-
-    return leaderboards

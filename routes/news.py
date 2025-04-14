@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
-from db import get_db
+from db import get_db_session
 from datetime import datetime
 
 router = APIRouter()
@@ -32,9 +32,8 @@ class ArticleSummary(BaseModel):
     username: str
 
 @router.get("/", response_model=List[ArticleSummary])
-async def get_news():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_news(db_session = Depends(get_db_session)): # Use dependency
+    db, cursor = db_session # Unpack
 
     cursor.execute("""
         SELECT
@@ -50,9 +49,11 @@ async def get_news():
 
 
 @router.get("/{article_id}", response_model=ArticleResponse)
-async def get_article(article_id: int):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+async def get_article(
+    article_id: int,
+    db_session = Depends(get_db_session) # Use dependency
+):
+    db, cursor = db_session # Unpack
 
     cursor.execute("""
         SELECT
@@ -68,3 +69,4 @@ async def get_article(article_id: int):
         raise HTTPException(status_code=404, detail="Article not found")
 
     return article
+
