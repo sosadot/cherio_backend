@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 from db import get_db
-from datetime import datetime # Import datetime
+from datetime import datetime
 
-router = APIRouter()  # ✅ This is enough
+router = APIRouter()
 
 class ArticleResponse(BaseModel):
     id: int
@@ -25,7 +25,7 @@ class ArticleSummary(BaseModel):
     slug: str
     title: str
     short_story: str
-    full_story: str
+    full_story: Optional[str] = None
     user_id: int
     image: Optional[str] = None
     created_at: datetime
@@ -57,7 +57,7 @@ def get_article(article_id: int):
     cursor.execute("""
         SELECT
             a.id, a.slug, a.title, a.short_story, a.full_story, a.image, a.created_at,
-            a.user_id, -- Added this line
+            a.user_id,
             u.username, u.look, u.gender
         FROM website_articles a
         JOIN users u ON a.user_id = u.id
