@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Form, Request
+from fastapi import APIRouter, HTTPException, Request, Form
+from pydantic import BaseModel
 import uuid
 import bcrypt
 from datetime import datetime
@@ -6,6 +7,10 @@ from db import get_db
 from utils.auth_utils import create_access_token
 
 router = APIRouter()
+
+# ------------------------------
+# Utility functions
+# ------------------------------
 
 def hash_password(password: str):
     hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
@@ -16,6 +21,27 @@ def verify_password(password: str, hashed_password: str):
 
 def generate_sso():
     return f"Sso-{uuid.uuid4()}"
+
+# ------------------------------
+# Pydantic Models
+# ------------------------------
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+    remember_me: bool = False
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    mail: str
+    look: str
+    gender: str
+    remember_me: bool = False
+
+# ------------------------------
+# Register (still uses Form)
+# ------------------------------
 
 @router.post("/register")
 def register_user(
@@ -30,7 +56,6 @@ def register_user(
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    # Check if user or email already exists
     cursor.execute("SELECT id FROM users WHERE username = %s OR mail = %s", (username, mail))
     if cursor.fetchone():
         raise HTTPException(status_code=400, detail="Username or email already exists")
@@ -39,7 +64,6 @@ def register_user(
     account_created = int(datetime.utcnow().timestamp())
     ip = request.client.host
 
-    # Insert new user
     cursor.execute("""
         INSERT INTO users (
             username, password, mail, look, gender, motto, `rank`, credits, pixels, points,
@@ -50,7 +74,6 @@ def register_user(
 
     db.commit()
 
-    # Fetch user id
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
 
@@ -63,27 +86,31 @@ def register_user(
         "username": username
     }
 
+# ------------------------------
+# Login (now accepts JSON ✅)
+# ------------------------------
+
 @router.post("/login")
-def login_user(
-    username: str = Form(...),
-    password: str = Form(...),
-    remember_me: bool = Form(False)
-):
+def login_user(data: LoginRequest):
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute("SELECT id, password FROM users WHERE username = %s", (username,))
+    cursor.execute("SELECT id, password FROM users WHERE username = %s", (data.username,))
     user = cursor.fetchone()
-    if not user or not verify_password(password, user["password"]):
+    if not user or not verify_password(data.password, user["password"]):
         raise HTTPException(status_code=403, detail="Invalid username or password")
 
-    jwt_token = create_access_token({"sub": user["id"]}, remember_me=remember_me)
+    jwt_token = create_access_token({"sub": user["id"]}, remember_me=data.remember_me)
 
     return {
         "access_token": jwt_token,
         "token_type": "bearer",
-        "username": username
+        "username": data.username
     }
+
+# ------------------------------
+# SSO Ticket
+# ------------------------------
 
 @router.get("/sso/{username}")
 def get_sso(username: str):
