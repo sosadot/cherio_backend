@@ -53,9 +53,8 @@ class BabelMiddleware(BaseHTTPMiddleware):
                  print(f"[BabelMiddleware] Warning: Translation file not found for locale '{locale}': {file_path}") # Keep warning
         return all_translations
 
-
     async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
+            self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         best_locale = self.default_locale
         path_lang = None
@@ -65,18 +64,32 @@ class BabelMiddleware(BaseHTTPMiddleware):
         match = self.lang_code_regex.match(request_path)
         if match:
             path_lang = match.group(1)
-            best_locale = path_lang
+            if path_lang in self.supported_locales:
+                best_locale = path_lang
+            else:
+                best_locale = self.default_locale
         else:
             headers = Headers(scope=request.scope)
             accept_language = headers.get("accept-language")
-            negotiated_locale = negotiate_locale(
-                accept_language, self.supported_locales, sep='-'
-            )
-            if negotiated_locale:
-                best_locale = negotiated_locale
+            if accept_language:
+                try:
+                    negotiated_locale = negotiate_locale(
+                        accept_language, self.supported_locales, sep='-'
+                    )
+                    if negotiated_locale:
+                        best_locale = negotiated_locale
+                except Exception as e:
+                    print(f"[BabelMiddleware] Error during locale negotiation for header '{accept_language}': {e}")
 
         # --- Get Translations for Locale ---
-        locale_translations = self.translations.get(best_locale, {}).copy()
+        if best_locale not in self.translations:
+            print(
+                f"[BabelMiddleware] Warning: No translations loaded for determined locale '{best_locale}'. Falling back to default '{self.default_locale}' for translations.")
+            effective_locale_for_translations = self.default_locale
+        else:
+            effective_locale_for_translations = best_locale
+
+        locale_translations = self.translations.get(effective_locale_for_translations, {}).copy()
         default_translations = self.translations.get(self.default_locale, {}).copy()
 
         # --- Define gettext function for this specific request ---
@@ -85,16 +98,21 @@ class BabelMiddleware(BaseHTTPMiddleware):
             try:
                 return message.format(**kwargs) if kwargs else message
             except KeyError as e:
-                # Keep formatting error logs
-                print(f"[BabelMiddleware] ERROR: Missing format key '{e}' for message key '{key}'")
-                return message
+                print(
+                    f"[BabelMiddleware] ERROR: Missing format key '{e}' for message key '{key}' in locale '{effective_locale_for_translations}'")
+                default_message = default_translations.get(key, key)
+                try:
+                    return default_message.format(**kwargs) if kwargs else default_message
+                except Exception:
+                    return default_message
             except Exception as e:
-                 print(f"[BabelMiddleware] ERROR during formatting for key '{key}': {e}")
-                 return message
+                print(
+                    f"[BabelMiddleware] ERROR during formatting for key '{key}' in locale '{effective_locale_for_translations}': {e}")
+                return message
 
         # --- Attach to request state ---
-        request.state.gettext = gettext
         request.state.locale = best_locale
+        request.state.gettext = gettext
 
         # --- Call next middleware/route ---
         response = await call_next(request)
