@@ -47,28 +47,52 @@ async def get_user_by_username(
 # ------------------------------
 # Get Friends
 # ------------------------------
-
 @router.get("/friends/{username}")
 async def get_friends(
     username: str,
-    db_session = Depends(get_db_session) # Use dependency
+    db_session = Depends(get_db_session)  # Use dependency
 ):
-    db, cursor = db_session # Unpack
+    db, cursor = db_session  # Unpack
+
+    # First, get the user ID
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = cursor.fetchone()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
     user_id = user["id"]
+
+    # Show all friendships for debug
+    cursor.execute("SELECT * FROM messenger_friendships")
+    all_friendships = cursor.fetchall()
+
+    # Fetch friend user IDs
     cursor.execute("""
-        SELECT u.username, u.look, u.gender, u.online, u.motto
+        SELECT 
+            CASE 
+                WHEN mf.user_one_id = %s THEN mf.user_two_id
+                ELSE mf.user_one_id
+            END AS friend_id
         FROM messenger_friendships mf
-        JOIN users u ON (
-            (mf.user_one_id = %s AND u.id = mf.user_two_id) OR
-            (mf.user_two_id = %s AND u.id = mf.user_one_id)
-        )
-    """, (user_id, user_id))
-    friends = cursor.fetchall()
+        WHERE mf.user_one_id = %s OR mf.user_two_id = %s
+    """, (user_id, user_id, user_id))
+
+    friend_ids_result = cursor.fetchall()
+    friend_ids = [row["friend_id"] for row in friend_ids_result]
+
+    friends = []
+    if friend_ids:
+        placeholders = ','.join(['%s'] * len(friend_ids))
+        query = f"""
+            SELECT id, username, look, gender, online, motto
+            FROM users
+            WHERE id IN ({placeholders})
+        """
+        cursor.execute(query, tuple(friend_ids))
+        friends = cursor.fetchall()
     return friends
+
+
 
 # ------------------------------
 # Online Count
@@ -306,6 +330,3 @@ async def update_user_settings(
 
 
     return {"message": "Settings updated successfully"}
-
-# Note: Removed duplicate /leaderboard endpoint from user.py, assuming it's in general.py
-
