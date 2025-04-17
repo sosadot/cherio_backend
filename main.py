@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import stripe
 from enum import Enum
 from babel_middleware import BabelMiddleware
+from routes import eye
 
 # Load .env
 load_dotenv()
@@ -71,8 +72,11 @@ if hasattr(leaderboard, 'router'):
     app.include_router(leaderboard.router, prefix="/{lang_code}/user", tags=["leaderboard"])
 if hasattr(image_proxy, 'router'):
     app.include_router(image_proxy.router, prefix="/{lang_code}/image-proxy", tags=["Image Proxy"])
+if hasattr(eye, 'router'):
+    app.include_router(eye.router, prefix="/{lang_code}/eye", tags=["The Eye"])
 # if hasattr(shop, 'router'):
 #     app.include_router(shop.router, prefix="/{lang_code}/shop", tags=["Shop"])
+
 
 
 # --- Uvicorn server execution ---

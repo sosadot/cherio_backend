@@ -35,7 +35,7 @@ async def get_user_by_username(
 ):
     db, cursor = db_session # Unpack
     cursor.execute("""
-        SELECT id, username, look, motto, credits, pixels, points, gender, mail
+        SELECT id, username, look, motto, credits, pixels, points, gender, mail, `rank`
         FROM users
         WHERE username = %s
     """, (username,))
